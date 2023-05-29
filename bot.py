@@ -1,10 +1,11 @@
 import random
+from collections import defaultdict
 
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton
 from telegram.ext import ConversationHandler
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 
-from conn_post import delete_row, player_db, update_db, money_save, saving_card, open_card, save_character, all_cards_one, all_cards, user_choice_save, save_education, update_list, good_bad_cards, save_event_count_last_12, save_robota, birja_save, pension_save
+from conn_db import save_deposit, save_credit, delete_row, player_db, update_db, update_db_gb, save_m_y, money_save, salary_save, monthe_db, all_cards_one, saving_card, open_card, save_character, all_cards, user_choice_save, save_education, update_list, good_bad_card_one, good_bad_cards, save_event_count_last_12, save_robota, save_earnings, birja_save, pension_save
 
 # Визначення станів для ConversationHandler
 CHARACTER_CHOICE = 1
@@ -33,20 +34,20 @@ def start(update, context):
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     # Надсилаємо повідомлення з кнопками
-    update.message.reply_text(text=f"Привіт {first_name}, я тестова версія Cash Genius. Давай зіграємо. Обери спочатку складність гри /character", reply_markup=reply_markup)
+    update.message.reply_text(text=f"Привіт, {first_name}, я тестова версія Cash Genius. Давай зіграємо. Обери спочатку складність гри /character", reply_markup=reply_markup)
     delete_row(telegram_id)
     # Встановлюємо наступний крок у діалозі
     return INPUT_PENSION
 
 # Обробник команди /character
 def character(update, context):
-    character_1 = ['Адель золота молодь Легкий рівень','Заможна сім’я Багато друзів',5000,'телефон, ноутбук']
-    character_2 = ['Євген звичайний хлопець Середній рівень','Звичайна сім’я Декілька друзів',1500,' ноутбук']
-    character_3 = ['Михайло бідний хлопець Складний рівень','Бідна неповна сім’я Один друг',400,'телефон']
+    character_1 = ['Адель','золота молодь Легкий рівень','Заможна сім’я Багато друзів',5000,'телефон, ноутбук']
+    character_2 = ['Євген', 'звичайний хлопець Середній рівень','Звичайна сім’я Декілька друзів',1500,' ноутбук']
+    character_3 = ['Михайло', 'бідний хлопець Складний рівень','Бідна неповна сім’я Один друг',400,'телефон']
     character = [character_1, character_2, character_3]
     global list_character
     list_character = character
-    
+
     # Формуємо список кнопок
     buttons = [
             InlineKeyboardButton('Легкий рівень', callback_data='character_1'),
@@ -67,8 +68,12 @@ def character_choice(update, context):
     telegram_id = user.id
     first_name = user.first_name
     player = player_db(telegram_id, first_name)
+    relationships_with_family = player[3]
+    relationships_with_friends = player[4]
     name = player[9]
     earnings = player[13]
+    health = player[6]
+    motivation = player[7]
     money = player[8]
     property = player[12]
     query = update.callback_query
@@ -78,41 +83,59 @@ def character_choice(update, context):
     else:
         if user_choice == 'character_1':
             character = list_character[0]
-            character_text = f"""Имя: {character[0]}
-                Сем'я: {character[1]}
-                Деньги: {character[2]}
-                Имущество: {character[3]}
-                """
-            
+            character_text = f"""
+            Им'я: {character[0]}
+            Інформація: {character[1]}
+            Сім'я/Друзі: {character[2]}
+            Гроші: {character[3]}
+            Майно: {character[4]}
+            """
+            relationships_with_family = 100
+            relationships_with_friends = 90
+            health = 80
+            motivation = 50
+
         elif user_choice == 'character_2':
             character = list_character[1]
-            character_text = f"""Имя: {character[0]}
-                Сем'я: {character[1]}
-                Деньги: {character[2]}
-                Имущество: {character[3]}
-                """
-            
+            character_text = f"""
+            Им'я: {character[0]}
+            Інформація: {character[1]}
+            Сім'я/Друзі: {character[2]}
+            Гроші: {character[3]}
+            Майно: {character[4]}
+            """
+            relationships_with_family = 80
+            relationships_with_friends = 70
+            health = 100
+            motivation = 80
+
         elif user_choice == 'character_3':
             character = list_character[2]
-            character_text = f"""Имя: {character[0]}
-                Сем'я: {character[1]}
-                Деньги: {character[2]}
-                Имущество: {character[3]}
-                """
-            
+            character_text = f"""
+            Им'я: {character[0]}
+            Інформація: {character[1]}
+            Сім'я/Друзі: {character[2]}
+            Гроші: {character[3]}
+            Майно: {character[4]}
+            """
+            relationships_with_family = 70
+            relationships_with_friends = 60
+            health = 70
+            motivation = 100
+
         name = character[0]
-        property = character[3]
-        earnings += character[2]
-        money += character[2]
-        money = player[8] + character[2]
+        property = character[4]
+        earnings += character[3]
+        money += character[3]
+        money = player[8] + character[3]
         name = name + player[9]
 
-        save_character(money, name, earnings, property, telegram_id)
-        
+        save_character(money, name, earnings, property, relationships_with_family, relationships_with_friends, health, motivation, telegram_id)
+
         # надсилаємо інформацію про персонажа
         if list_character:
-            query.edit_message_text(text=f"Ви вибрали персонажа: {user_choice}. {character_text}")
-    # Завершення ConversationHandler    
+            query.edit_message_text(text=f"Ви вибрали персонажа: {character_text}")
+    # Завершення ConversationHandler
     updater.dispatcher.remove_handler(character_choice_handler)
     return ConversationHandler.END
 
@@ -130,76 +153,98 @@ def play_card(update, context):
     user = update.effective_user
     telegram_id = user.id
     first_name = user.first_name
-    
-    
     player = player_db(telegram_id, first_name)
-    monthe = player[15]
-    year = player [10]
-    time = player[2]
-    if year <= 18:
-        cards = all_cards_one()
-    else:
-        cards = all_cards()
-    query = update.callback_query
-    # Утворимо до списку
-    education = player[14].split()
-    if monthe == 12:
-        monthe = 0
-        year += 1
-        query.message.reply_text(text="Вітання з Днем Народження)")
-        if year == 18:
-            time += 120
-    else:
-        monthe += 1
-    
-    def event_random(education, monthe):
-        event = random.sample(cards, random.randint(1, 3))
-        if any(card[1] == 'Освіта' for card in event):
-            # Перевіряємо чи вчиться зараз
-            if education[1] == '0' and year >= 18:
-                # Освіту можна здобути лише у 7-8 місяцях року
-                if monthe == 7 or monthe == 8:
-                    return event
-                else:
+    name = player[9]
+    money = player[8]
+    if 'Адель' in name or 'Євген' in name or 'Михайло' in name:
+        monthe = player[15]
+        year = player [10]
+        time = player[2]
+        if year <= 18:
+            cards = all_cards_one()
+        else:
+            cards = all_cards()
+        query = update.callback_query
+        # Утворимо до списку
+        education = player[14].split()
+        if monthe == 12:
+            monthe = 0
+            year += 1
+            update.message.reply_text(text=f"Вітання з Днем Народження, Вам вже {year}")
+            if year == 18:
+                time += 120
+        else:
+            monthe += 1
+        save_m_y(monthe, year, time, telegram_id)
+        def event_random(education, monthe):
+            event = random.sample(cards, random.randint(1, 3))
+            if any(card[1] == 'Освіта' for card in event):
+                # Перевіряємо чи вчиться зараз
+                if education[1] == '0' and year >= 18:
+                    # Освіту можна здобути лише у 7-8 місяцях року
+                    if monthe == 7 or monthe == 8:
+                        return event
+                    else:
+                        return event_random(education, monthe)
+                elif education[1] == '1':
+                    if education[2] == '4':
+                        education.insert(1, '0')
+                        education.insert(0, 'Бакалавр')
+                    else:
+                        education[2] = str(int(education[2]) + 1)
+                    # Повернемо в рядок
+                    education = ' '.join(education)
+                    save_education(education, telegram_id)
                     return event_random(education, monthe)
-            elif education[1] == '1':
-                if education[2] == '4':
-                    education.insert(1, '0')
-                    education.insert(0, 'Yes')
-                else:
-                    education[2] = str(int(education[2] + 1))
-                # Повернемо в рядок
-                education = ' '.join(education)
-                save_education(education, telegram_id)
-                return event_random(education, monthe)
-        return event
-    
-    event = event_random(education, monthe)
-    saving_card(event, telegram_id)
-    
+            return event
 
-    # Формуємо список кнопок
-    if len(event) == 1:
+        event = event_random(education, monthe)
+        saving_card(event, telegram_id)
+
+        credit_months = player[24]
+        balance_1 = player[25]
+        if balance_1 != 0 or credit_months != 0:
+            money -= balance_1
+            credit_months -= 1
+            if credit_months == 0:
+                balance = 0
+            money_save(money, telegram_id)
+            save_credit(credit_months, balance, telegram_id)
+
+        deposit_month = player[26]
+        balance = player[27]
+        if monthe == deposit_month and balance != 0:
+            update.message.reply_text(f"""Вітаємо! Ви можете забрати гроші, які клали на депозит {deposit_month} місяців назаад. Ваш баланс поповнюється на {balance} грн!""")
+            money += balance
+            money_save(money, telegram_id)
+            balance = 0
+            deposit_month = 0
+            save_deposit(balance, deposit_month, telegram_id)
+
+        # Формуємо список кнопок
+        if len(event) == 1:
+                buttons_1 = [
+                InlineKeyboardButton(event[0][1], callback_data='card_1')
+            ]
+        elif len(event) == 2:
             buttons_1 = [
-            InlineKeyboardButton(event[0][1], callback_data='card_1')
-        ]
-    elif len(event) == 2:
-        buttons_1 = [
-            InlineKeyboardButton(event[0][1], callback_data='card_1'),
-            InlineKeyboardButton(event[1][1], callback_data='card_2')
-        ]
-    elif len(event) == 3:
-         buttons_1 = [
-            InlineKeyboardButton(event[0][1], callback_data='card_1'),
-            InlineKeyboardButton(event[1][1], callback_data='card_2'),
-            InlineKeyboardButton(event[2][1], callback_data='card_3')
-        ]
-    # Створюємо розмітку для кнопок
-    keyboard = [buttons_1]
-    reply_markup_play_card = InlineKeyboardMarkup(keyboard)
-    # Створюємо розмітку для кнопок
-    update.message.reply_text(text="Виберіть картку:", reply_markup=reply_markup_play_card)
-    return CARD_CHOICE
+                InlineKeyboardButton(event[0][1], callback_data='card_1'),
+                InlineKeyboardButton(event[1][1], callback_data='card_2')
+            ]
+        elif len(event) == 3:
+            buttons_1 = [
+                InlineKeyboardButton(event[0][1], callback_data='card_1'),
+                InlineKeyboardButton(event[1][1], callback_data='card_2'),
+                InlineKeyboardButton(event[2][1], callback_data='card_3')
+            ]
+        # Створюємо розмітку для кнопок
+        keyboard = [buttons_1]
+        reply_markup_play_card = InlineKeyboardMarkup(keyboard)
+        # Створюємо розмітку для кнопок
+        update.message.reply_text(text="Виберіть картку:", reply_markup=reply_markup_play_card)
+        return CARD_CHOICE
+    else:
+        update.message.reply_text(text="Оберіть спочатку складність гри /character")
 event_user = []
 # Обробник вибору картки
 def card_choice(update, context):
@@ -207,8 +252,9 @@ def card_choice(update, context):
     telegram_id = user.id
     first_name = user.first_name
     query = update.callback_query
-    event_cards = open_card(telegram_id)
     player = player_db(telegram_id, first_name)
+    year = player[10]
+    event_cards = open_card(telegram_id, year)
     global event_user
     user_choice = player[21]
     user_choice = query.data
@@ -224,28 +270,28 @@ def card_choice(update, context):
         card_text = f"Подія: {event_text}\n"
         if event_time is not None:
             card_text += f"Час: {event_time}\n"
-            
+
         if event_relationships_with_family is not None:
             card_text += f"Відносини із сім'єю: {event_relationships_with_family}\n"
-            
+
         if event_relationships_with_friends is not None:
             card_text += f"Відносини з друзями: {event_relationships_with_friends}\n"
-            
+
         if event_skills is not None:
             card_text += f"Навички: {event_skills}\n"
-            
+
         if event_health is not None:
             card_text += f"Здоров'я: {event_health}\n"
-            
+
         if event_motivation is not None:
             card_text += f"Мотивація: {event_motivation}\n"
-            
+
         if event_money is not None:
             card_text += f"Гроші: {event_money}\n"
 
         if event_ubytki is not None:
             card_text += f"Щомісячні витрати: {event_ubytki}\n"
-            
+
     elif user_choice == 'card_2':
         event_user = event_cards[1]
         event_id, event_categories, event_text, event_time, event_relationships_with_family, \
@@ -255,31 +301,30 @@ def card_choice(update, context):
         card_text = f"Подія: {event_text}\n"
         if event_time is not None:
             card_text += f"Час: {event_time}\n"
-            
+
         if event_relationships_with_family is not None:
             card_text += f"Відносини із сім'єю: {event_relationships_with_family}\n"
-            
+
         if event_relationships_with_friends is not None:
             card_text += f"Відносини з друзями: {event_relationships_with_friends}\n"
-            
+
         if event_skills is not None:
             card_text += f"Навички: {event_skills}\n"
-            
+
         if event_health is not None:
             card_text += f"Здоров'я: {event_health}\n"
-            
+
         if event_motivation is not None:
             card_text += f"Мотивація: {event_motivation}\n"
-            
+
         if event_money is not None:
             card_text += f"Гроші: {event_money}\n"
 
         if event_ubytki is not None:
             card_text += f"Щомісячні витрати: {event_ubytki}\n"
-            
+
     elif user_choice == 'card_3':
         event_user = event_cards[2]
-        print(event_user)
         event_id, event_categories, event_text, event_time, event_relationships_with_family, \
         event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, event_ubytki, event_property_type = event_user
 
@@ -287,28 +332,28 @@ def card_choice(update, context):
         card_text = f"Подія: {event_text}\n"
         if event_time is not None:
             card_text += f"Час: {event_time}\n"
-            
+
         if event_relationships_with_family is not None:
             card_text += f"Відносини із сім'єю: {event_relationships_with_family}\n"
-            
+
         if event_relationships_with_friends is not None:
             card_text += f"Відносини з друзями: {event_relationships_with_friends}\n"
-            
+
         if event_skills is not None:
             card_text += f"Навички: {event_skills}\n"
-            
+
         if event_health is not None:
             card_text += f"Здоров'я: {event_health}\n"
-            
+
         if event_motivation is not None:
             card_text += f"Мотивація: {event_motivation}\n"
-            
+
         if event_money is not None:
             card_text += f"Гроші: {event_money}\n"
 
         if event_ubytki is not None:
             card_text += f"Щомісячні витрати: {event_ubytki}\n"
-                    
+
     buttons_2 = [
         InlineKeyboardButton('Прийняти', callback_data='aor_1'),
         InlineKeyboardButton('Відмовитись', callback_data='aor_2')
@@ -339,84 +384,108 @@ def accept_or_refuse(update, context):
     health = player[6]
     motivation = player[7]
     money = player[8]
+    year = player[10]
     property = player[12].split()
     earnings = player[13]
     education = player[14].split()
     monthe = player[15]
     robota = player[16]
+    robota_time = player[23]
     global event_user
     user_choice = player[21]
-    event_cards = open_card(telegram_id)
+    event_cards = open_card(telegram_id, year)
     event_id, event_categories, event_text, event_time, event_relationships_with_family, \
     event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, event_ubytki, event_property_type = event_user
 
+    def continue_card():
+        if len(event_cards) == 1:
+            buttons_3 = [
+            InlineKeyboardButton(event_cards[0][1], callback_data='card_1')
+        ]
+        elif len(event_cards) == 2:
+            buttons_3 = [
+                InlineKeyboardButton(event_cards[0][1], callback_data='card_1'),
+                InlineKeyboardButton(event_cards[1][1], callback_data='card_2')
+            ]
+        keyboard = [buttons_3]
+        reply_markup_play_card = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(text="Виберіть картку:", reply_markup=reply_markup_play_card)
+        event = event_cards
+        saving_card(event, telegram_id)
+        return card_choice
+
     if user_choice_aor == 'aor_1':
-        if event_user[1] != 'Робота':
-            if money is not None and event_money is not None:
-                if money < event_money:
-                    query.message.reply_text(text='Вам бракує грошей')
-        elif skills is not None and event_skills is not None:
-            if skills < event_skills:
-                query.message.reply_text(text='Вам бракує навичок')
-        elif event_user[1] == 'Робота' and robota == 'Працюєте':
-            query.message.reply_text(text="На разі ви вже працюєте, спочатку звільніться через команду /quit потім улаштовуйтесь на нову роботу!")
-        elif health <= 0:
-            query.message.reply_text(text="Смерть")
-            updater.dispatcher.add_handler(stop_handler)
-            return stop_bot
-        elif motivation <= 0:
-            query.message.reply_text(text="Самогубство")
-            updater.dispatcher.add_handler(stop_handler)
-            return stop_bot
-        elif money < 0 :
-            query.message.reply_text(text="Банкрутство")
+        if event_categories == 'Робота':
+            if skills is not None and event_skills is not None:
+                if skills < event_skills:
+                    query.message.reply_text(text='Вам бракує навичок')
+                elif event_categories == 'Робота' and robota == 'Працюєте':
+                    query.message.reply_text(text="На разі ви вже працюєте, спочатку звільніться через команду /quit потім влаштуйтесь на нову роботу!")
+                else:
+                    if event_money is not None:
+                        earnings += event_money
+                    if event_time is not None:
+                        robota_time += event_time
+                        time += robota_time
+                    money += earnings
+                    robota_salary = player[22] + event_money
+                    salary_save(robota_salary, robota_time, time, telegram_id)
+                    query.edit_message_text(text="Тоді продовжимо")
+                    update_db(telegram_id, event_categories, event_time, event_relationships_with_family, event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, time, event_ubytki)
         else:
-            update_db(telegram_id, event_categories, event_time, event_relationships_with_family, event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, time)
-        event_cards.pop(int(user_choice[5]) - 1)
+            if event_money is not None:
+                if money < int(event_money):
+                    query.message.reply_text(text='Вам бракує грошей')
+            if health <= 0:
+                query.message.reply_text(text="Смерть")
+                updater.dispatcher.add_handler(stop_handler)
+                return start
+            elif motivation <= 0:
+                query.message.reply_text(text="Самогубство")
+                updater.dispatcher.add_handler(stop_handler)
+                return start
+            elif money < 0 :
+                query.message.reply_text(text="Банкрутство")
+            elif year >= 60:
+                return start
+            else:
+                query.edit_message_text(text="Тоді продовжимо")
+                update_db(telegram_id, event_categories, event_time, event_relationships_with_family, event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, time, event_ubytki)
+                event_cards.pop(int(user_choice[5]) - 1)
+                if event_ubytki is not None:
+                    earnings += event_ubytki
+            money += earnings
+        continue_card()
+
     else:
-        query.edit_message_text(text="Тоді продовжимо")
-    if event_user[1] == 'Освіта' and user_choice_aor == 'aor_1':
-        education.insert(1, '1')
+        event_cards.pop(int(user_choice[5]) - 1)
+        if len(event_cards) == 0:
+            query.edit_message_text(text="Наступний хід /play_card")
+        else:
+            continue_card()
+        #query.edit_message_text(text="Тоді продовжимо")
+    if event_categories == 'Освіта' and user_choice_aor == 'aor_1':
+        education[1] = '1'
 
     education = ' '.join(education)
-    if event_user[1] == 'Майно' and user_choice_aor == 'aor_1':
+    if event_categories == 'Майно' and user_choice_aor == 'aor_1':
         property.append(event_property_type)
-        earnings += event_ubytki
-        money += earnings
+        if event_ubytki is not None:
+            earnings += event_ubytki
+
 
     property = ' '.join(property)
-    if event_user[1] == 'Робота'and user_choice_aor == 'aor_1':
+    if event_categories == 'Робота'and user_choice_aor == 'aor_1':
         robota = 'Працюєте'
+
 
     update_list(education, earnings, property, robota, money, telegram_id)
 
-    # Відправляємо повідомлення з вмістом карток, що залишилися.
-    for i, card in enumerate(event_cards):
-        event_id, event_categories, event_text, event_time, event_relationships_with_family, \
-        event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, event_ubytki, event_property_type = event_cards[i]
+    if year < 18:
+        good_bad_list = good_bad_card_one()
+    else:
+        good_bad_list = good_bad_cards()
 
-        card_text = f"Подія: {event_text}\n"
-        if event_time is not None:
-            card_text += f"Час: {event_time}\n"
-        if event_relationships_with_family is not None:
-            card_text += f"Відносини із сім'єю: {event_relationships_with_family}\n"
-        if event_relationships_with_friends is not None:
-            card_text += f"Відносини з друзями: {event_relationships_with_friends}\n"
-        if event_skills is not None:
-            card_text += f"Навички: {event_skills}\n"
-        if event_health is not None:
-            card_text += f"Здоров'я: {event_health}\n"
-        if event_motivation is not None:
-            card_text += f"Мотивация: {event_motivation}\n"
-        if event_money is not None:
-            card_text += f"Деньги: {event_money}\n"
-        if event_ubytki is not None:
-            card_text += f"Щомісячні витрати: {event_ubytki}\n"
-        query.message.reply_text(text=card_text)
-    
-    good_bad_list = good_bad_cards()
-
-    player = player_db(telegram_id, first_name)
     event_count_last_12_months = player[18]
     # Випадкова подія не більше 4 разів за 12 місяців та у випадковому місяці
     if event_count_last_12_months < 4:
@@ -441,11 +510,11 @@ def accept_or_refuse(update, context):
                 card_text += f"Мотивація: {event_motivation}\n"
             if event_money is not None:
                 card_text += f"Гроші: {event_money}\n"
-            update_db(telegram_id, event_categories, event_time, event_relationships_with_family, event_relationships_with_friends, event_skills, event_health, event_motivation, event_money, time)
-            query.message.reply_text(card_text) 
+            update_db_gb(telegram_id, event_time, event_relationships_with_family, event_relationships_with_friends, event_skills, event_health, event_motivation, event_money)
+            query.message.reply_text(card_text)
             # Збільшуємо лічильник подій, що випали
             event_count_last_12_months += 1
-            
+
     else:
         # Лічильник подій досяг максимального значення, випадкова подія не випадає
         pass
@@ -467,14 +536,23 @@ def handle_button(update, context):
     telegram_id = user.id
     first_name = user.first_name
     player = player_db(telegram_id, first_name)
-    robota = player[16].split()
+    robota = player[16]
     query = update.callback_query
     user_choice_quit = query.data
     if user_choice_quit == 'quit_1':
-        if robota[0] == 'Непрацюєте':
+        print(robota[0])
+        if robota == 'Не працюєте':
             query.edit_message_text('Ви ще не працюєте)')
         else:
-            robota = 'Непрацюєте'
+            robota = 'Не працюєте'
+            robota_salary = player[22]
+            earnings = player[13] - robota_salary
+            robota_salary = 0
+            robota_time = player[23]
+            time = player[2] - robota_time
+            robota_time = 0
+            salary_save(robota_salary, robota_time, time, telegram_id)
+            save_earnings(earnings, telegram_id)
             query.edit_message_text('Ви успішно звільнились')
             save_robota(robota, telegram_id)
 
@@ -502,9 +580,9 @@ def birja(update, context):
     for stock, price in stocks.items():
         keyboard.append([InlineKeyboardButton(f'Купити {stock}', callback_data=f'buy_{stock}')])
         keyboard.append([InlineKeyboardButton(f'Продати {stock}', callback_data=f'sell_{stock}')])
-
+    keyboard.append([InlineKeyboardButton('Вийти', callback_data='exit_')])
     reply_markup = InlineKeyboardMarkup(keyboard)
-
+    print(keyboard)
     # Надсилання повідомлення з клавіатурою та поточними цінами акцій
     message = "Біржа. Виберіть дію:"
     for stock, price in stocks.items():
@@ -520,57 +598,81 @@ def handle_stock_action(update, context):
     query = update.callback_query
     chat_id = query.message.chat_id
     action, stock = query.data.split('_')
-    stock_price = stocks[stock]
     birja_list = player[11]
     if birja_list is not None:
         birja_list = birja_list.split()
     else:
         birja_list = []
     money = player[8]
+    def button_update():
+        # Оновлення повідомлення з клавіатурою та поточними цінами акцій
+        for stock in stocks:
+            # Генерація випадкового відсотка зміни ціни
+            percent_change = random.uniform(-5, 5)
+            # Зміна ціни акції
+            stocks[stock] += stocks[stock] * percent_change / 100
+        message = "Біржа. Виберіть дію:"
+        for stock, price in stocks.items():
+            message += f"\n{stock}: {price}"
+        query.edit_message_text(text=message, reply_markup=query.message.reply_markup)
     if action == 'buy':
+        stock_price = stocks[stock]
         if money > stock_price:
             birja_list.append(stock)
             money -= stock_price
             context.bot.send_message(chat_id=chat_id, text=f"Ви купили {stock} по ціні {stock_price}")
+            button_update()
+            birja_list = ' '.join(birja_list)
+            birja_save(money, birja_list, telegram_id)
         else:
             context.bot.send_message(chat_id=chat_id, text="Вам не вистачає грошей")
-        
-            
     elif action == 'sell':
+        stock_price = stocks[stock]
         if stock in birja_list:
             birja_list.remove(stock)
             money += stock_price
             context.bot.send_message(chat_id=chat_id, text=f"Ви продали {stock} по ціні {stock_price}")
+            button_update()
+            birja_list = ' '.join(birja_list)
+            birja_save(money, birja_list, telegram_id)
         else:
             context.bot.send_message(chat_id=chat_id, text="У вас немає таких акцій")
-    birja_list = ' '.join(birja_list)
-    birja_save(money, birja_list, telegram_id)
-    # Оновлення повідомлення з клавіатурою та поточними цінами акцій
-        # Генерація випадкових змін цінних паперів
-    for stock in stocks:
-        # Генерація випадкового відсотка зміни ціни
-        percent_change = random.uniform(-5, 5)
-        # Зміна ціни акції
-        stocks[stock] += stocks[stock] * percent_change / 100
-    message = "Біржа. Виберіть дію:"
-    for stock, price in stocks.items():
-        message += f"\n{stock}: {price}"
-    query.edit_message_text(text=message, reply_markup=query.message.reply_markup)
+    elif action == 'exit':
+        query.edit_message_text(text="Усього найкращого!")
+        return
+
+
+
 
 
 def bank(update, context):
+    user = update.effective_user
+    telegram_id = user.id
+    first_name = user.first_name
+    player = player_db(telegram_id, first_name)
+    year = player[10]
     keyboard = [
         [KeyboardButton('/make_deposit')],
         [KeyboardButton('/request_credit')],
         [KeyboardButton('/pension')],
-        [KeyboardButton('/back')],
+        [KeyboardButton('/cancel')],
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     # Отправляем сообщение с кнопками
+    # if year < 18:
+    #     update.message.reply_text(text="Вітаємо у банку! Вам ще немає 18 років!")
+    # else:
     update.message.reply_text(text="Вітаємо у банку! Навіщо завітали?", reply_markup=reply_markup)
 
 def back(update, context):
-    start(update, context)
+    keyboard = [
+        [KeyboardButton('/start')],
+        [KeyboardButton('/play_card')],
+        [KeyboardButton('/send_information')],
+        [KeyboardButton('/bank')]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    update.message.reply_text(text="Усього найкращого!", reply_markup=reply_markup)
 
 
 
@@ -579,6 +681,8 @@ def make_deposit(update, context):
     return DEPOSIT_AMOUNT
 
 def deposit_amount(update, context):
+    if update.message.text == 'cancel':
+        return cancel
     if not update.message.text.isnumeric():
         update.message.reply_text("Введіть коректне число")
         return DEPOSIT_AMOUNT
@@ -598,38 +702,65 @@ def deposit_amount(update, context):
     return DEPOSIT_MONTHS
 monthly_rate = 0.03
 interest_rate = 1
-def deposit_months(update, context):
-    deposit_month = int(update.message.text)
-    # calculate the monthly interest and the final amount
-    balance = context.user_data['balance']
-    for month in range(deposit_month):
-        balance += int(balance * monthly_rate)
-    # send a message with the final amount
-    update.message.reply_text(f"Ваша сума через {deposit_month} місяців : {balance}")
-    return ConversationHandler.END
 
-def deposit_output(update, context, deposit_month, balance, money):
+def deposit_months(update, context):
+    if update.message.text == 'cancel':
+        return cancel
     user = update.effective_user
     telegram_id = user.id
-    first_name = user.first_name
-    player = player_db(telegram_id, first_name)
-    money = player[8]
-    monthe = player[15]
-    if monthe == deposit_month:
-        update.message.reply_text(f"""Вітаємо! Ви можете забрати гроші, які клали на депозит {deposit_month} місяців назаад.
-        Ваш баланс поповнюється на {balance} грн!""")
-        money += balance
-        money_save(money, telegram_id)
-        return ConversationHandler.END   
-     
+    if int(update.message.text) < 4:
+        update.message.reply_text("Ви не можете покласти гроші на депозит менше ніж на 4 місяці")
+        return DEPOSIT_MONTHS
+    else:
+        deposit_month = int(update.message.text)
+        # calculate the monthly interest and the final amount
+        balance = context.user_data['balance']
+        for month in range(deposit_month):
+            balance += int(balance * monthly_rate)
+        # send a message with the final amount
+        keyboard = [
+        [KeyboardButton('/start')],
+        [KeyboardButton('/play_card')],
+        [KeyboardButton('/send_information')],
+        [KeyboardButton('/bank')]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        update.message.reply_text(f"Ваша сума через {deposit_month} місяців : {balance}", reply_markup=reply_markup)
+        save_deposit(balance, deposit_month, telegram_id)
+        return ConversationHandler.END
+
+# def deposit_output(update, context, deposit_month, balance, money):
+#     user = update.effective_user
+#     telegram_id = user.id
+#     first_name = user.first_name
+#     player = player_db(telegram_id, first_name)
+#     money = player[8]
+#     monthe = player[15]
+#     if monthe == deposit_month:
+#         update.message.reply_text(f"""Вітаємо! Ви можете забрати гроші, які клали на депозит {deposit_month} місяців назаад.
+#         Ваш баланс поповнюється на {balance} грн!""")
+#         money += balance
+#         money_save(money, telegram_id)
+#         return ConversationHandler.END
+
+
+
+
+
 
 def request_credit(update, context):
     update.message.reply_text("На яку суму хочете взяти кредит?")
     return CREDIT_AMOUNT
 
 def credit_amount(update, context):
+    if update.message.text == 'cancel':
+        return cancel
+    global credit_amount
     if not update.message.text.isnumeric():
         update.message.reply_text("Введіть коректне число")
+        return CREDIT_AMOUNT
+    if int(update.message.text) > 300000:
+        update.message.reply_text("Ви не можете взяти кредит більше за 300 000 грн за один раз. Введіть іншу суму")
         return CREDIT_AMOUNT
 
     credit_amount = int(update.message.text)
@@ -638,26 +769,40 @@ def credit_amount(update, context):
     telegram_id = user.id
     first_name = user.first_name
     player = player_db(telegram_id, first_name)
-    money = player[8] - credit_amount
+    money = player[8] + credit_amount
     money_save(money, telegram_id)
+
     update.message.reply_text(f"""Ваш баланс збільшився на {credit_amount} грн.
     На скільки місяців плануєте брати кредит?""")
-    # money = money - credit_amount
     return CREDIT_MONTHS
 
 def credit_months(update, context):
+    user = update.effective_user
+    telegram_id = user.id
     credit_months = int(update.message.text)
     balance = context.user_data['balance']
-    interest_rate = credit_months*10
-    balance = balance+interest_rate
-    
+    interest_rate = 1.5
+    balance = round(balance * ((1 + 1.5 / 100) ** credit_months))
     # send a message with the final amount
-    update.message.reply_text(f"Ви маєте повернути {balance} грн через {credit_months} місяців. Кредит під {interest_rate/10}%.")
+    update.message.reply_text(f"Ви маєте повернути {balance} грн через {credit_months} місяців. Кредит під {interest_rate}%.")
+    balance = balance/credit_months
+    save_credit(credit_months, balance, telegram_id)
     # end the conversation
     return ConversationHandler.END
 
+
+
+
+
 def cancel(update, context):
-    update.message.reply_text("bye")
+    keyboard = [
+        [KeyboardButton('/start')],
+        [KeyboardButton('/play_card')],
+        [KeyboardButton('/send_information')],
+        [KeyboardButton('/bank')]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    update.message.reply_text(text="Усього найкращого!", reply_markup=reply_markup)
     # end the conversation
     return ConversationHandler.END
 
@@ -683,9 +828,11 @@ credit_handler = ConversationHandler(
 
 
 def pension(update, context):
+    if update.message.text == 'cancel':
+        return cancel
     keyboard = [
         [KeyboardButton('/invest_to_my_pension')],
-        [KeyboardButton('/back')]
+        [KeyboardButton('/cancel')]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     update.message.reply_text(text="Яку пенсію ви бажаєте мати після 60 років (по завершенню гри)?", reply_markup=reply_markup)
@@ -720,6 +867,30 @@ pension_handler = ConversationHandler(
 )
 
 
+def my(update, context):
+    user = update.effective_user
+    telegram_id = user.id
+    first_name = user.first_name
+    player = player_db(telegram_id, first_name)
+    birja_list = player[11]
+    if not birja_list or birja_list == '':
+        update.message.reply_text("У вас ще немає акцій")
+        return
+
+    stock_counts = defaultdict(int)
+
+    # Разделение списка акций и подсчет повторений
+    stocks = birja_list.split()
+    for stock in stocks:
+        stock_counts[stock] += 1
+
+    # Формирование сообщения с количеством акций
+    message = "Кількість акций:\n"
+    for stock, count in stock_counts.items():
+        message += f"{stock}: {count}\n"
+
+    update.message.reply_text(message)
+
 # Обробник команди /send_information
 def send_information(update, context):
     user = update.effective_user
@@ -733,31 +904,38 @@ def send_information(update, context):
     health = player[6]
     motivation = player[7]
     money = player[8]
-    money = player[8]
     name = player[9]
     year = player[10]
-    education = player[14]
-    education = education.split()
+    education = player[14].split()
     property = player[12]
     earnings = player[13]
-    number = 0
     robota = player[16]
-    
+    pension = player[17]
+
+    balance_deposit = player[27]
+    deposit_month = player[26]
+
+    credit_months = player[24]
+    balance_1 = player[25]
+
     information = {
-        'Ім\'я': name[0:5],
+        'Ім\'я': name,
         'Років': year,
         'Освіта': education[0],
-        'Имущество': property,
+        'Майно': property,
         'Час': time,
         'Здоров\'я': health,
-        'Мотивация': motivation,
+        'Мотивація': motivation,
         'Відносини із сім\'єю': relationships_with_family,
         'Відносини з друзями': relationships_with_friends,
-        'Баланс': money,
+        'Баланс': "{:.2f}".format(money),
         'Дохід': earnings,
-        'Бажана пенсія': number,
+        'Бажана пенсія': pension,
         'Робота': robota + ' ' + '/quit',
-        'Біржа': '/birja'
+        'Біржа': 'Мої акції /my або купити\продати /birja',
+        'Deposit': 'Вам повернется ' + str(balance_deposit) + 'грн' + ' через ' + str(deposit_month) + 'місяців',
+        'Кредит': 'Вам залишилося ' + str(credit_months) + 'місяців по ' + str(balance_1) + 'грн'
+
     }
 
     information_text = ''
@@ -769,7 +947,10 @@ def send_information(update, context):
 
 
 # Створюємо екземпляр Updater і прив'язуємо його до токену бота
-updater = Updater(token='6293796882:AAELqkYaPG-WsIt7YqE69B4jX6e5wKW1uuU', use_context=True)
+
+#5900385828:AAETyA08oV2hGinvkDs8-zkUksIAzJGqpks
+updater = Updater(token='5900385828:AAETyA08oV2hGinvkDs8-zkUksIAzJGqpks', use_context=True)
+#updater = Updater(token='6293796882:AAELqkYaPG-WsIt7YqE69B4jX6e5wKW1uuU', use_context=True)
 
 # Створюємо обробники команд та коллбеків
 stop_handler = CommandHandler('stop', stop_bot)
@@ -787,8 +968,8 @@ quit_handler = CommandHandler('quit', quit)
 handle_button_handler = CallbackQueryHandler(handle_button, pattern='^quit')
 
 birja_handler = CommandHandler('birja', birja)
-stock_action_handler = CallbackQueryHandler(handle_stock_action, pattern='^(buy|sell)_')
-
+stock_action_handler = CallbackQueryHandler(handle_stock_action, pattern='^(buy|sell|exit)_')
+my_handler = CommandHandler('my', my)
 send_information_handler = CommandHandler('send_information', send_information)
 
 
@@ -815,6 +996,8 @@ updater.dispatcher.add_handler(handle_button_handler)
 updater.dispatcher.add_handler(birja_handler)
 updater.dispatcher.add_handler(stock_action_handler)
 
+updater.dispatcher.add_handler(my_handler)
+
 updater.dispatcher.add_handler(send_information_handler)
 
 updater.dispatcher.add_handler(deposit_handler)
@@ -825,7 +1008,7 @@ updater.dispatcher.add_handler(CommandHandler('bank', bank))
 updater.dispatcher.add_handler(CommandHandler('take_deposit', make_deposit))
 updater.dispatcher.add_handler(CommandHandler('deposit_amount', deposit_amount))
 updater.dispatcher.add_handler(CommandHandler('deposit_months', deposit_months))
-updater.dispatcher.add_handler(CommandHandler('deposit_output'), deposit_output)
+# updater.dispatcher.add_handler(CommandHandler('deposit_output'), deposit_output)
 updater.dispatcher.add_handler(CommandHandler('cancel', cancel))
 updater.dispatcher.add_handler(CommandHandler('request_credit', request_credit))
 updater.dispatcher.add_handler(CommandHandler('credit_amount', credit_amount))
@@ -836,4 +1019,5 @@ updater.dispatcher.add_handler(CommandHandler('no', no))
 # Запускаємо бота
 updater.start_polling()
 updater.idle()
+
 
